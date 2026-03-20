@@ -1,8 +1,22 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { formatCurrency } from '@/lib/calculations'
 import { TrendingUp, Users, HandCoins, Wallet, AlertCircle, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
+import React from 'react'
+
+function GiftIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <polyline points="20 12 20 22 4 22 4 12" />
+      <rect x="2" y="7" width="20" height="5" />
+      <line x1="12" y1="22" x2="12" y2="7" />
+      <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+      <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+    </svg>
+  )
+}
 
 export default async function DashboardPage() {
   const supabase = createClient()
@@ -12,39 +26,36 @@ export default async function DashboardPage() {
   const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', user.id).single()
   const isAdmin = profile?.role === 'admin'
 
-  // Fetch summary data
   const { data: contributions } = await supabase.from('contributions').select('amount')
   const { data: loans } = await supabase.from('loans').select('*, payments(*), borrower:borrowers(*, guarantor:profiles(*))')
   const { data: payments } = await supabase.from('payments').select('amount')
   const { data: members } = await supabase.from('profiles').select('id, full_name, role')
-  const { data: myContributions } = await supabase.from('contributions').select('amount').eq('investor_id', profile?.id)
+  const { data: myContributions } = await supabase.from('contributions').select('amount').eq('investor_id', profile?.id ?? '')
   const { data: distributions } = await supabase.from('distributions').select('amount').eq('investor_id', profile?.id ?? '')
 
-  const totalPool = (contributions ?? []).reduce((s, c) => s + Number(c.amount), 0)
-  const totalLoaned = (loans ?? []).filter(l => l.status !== 'settled').reduce((s, l) => s + Number(l.principal), 0)
-  const totalRepaid = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
+  const totalPool = (contributions ?? []).reduce((s: number, c: any) => s + Number(c.amount), 0)
+  const totalLoaned = (loans ?? []).filter((l: any) => l.status !== 'settled').reduce((s: number, l: any) => s + Number(l.principal), 0)
+  const totalRepaid = (payments ?? []).reduce((s: number, p: any) => s + Number(p.amount), 0)
   const balance = totalPool - totalLoaned + totalRepaid
-  const activeLoans = (loans ?? []).filter(l => l.status === 'active').length
-  const settledLoans = (loans ?? []).filter(l => l.status === 'settled').length
-  const myTotalContrib = (myContributions ?? []).reduce((s, c) => s + Number(c.amount), 0)
-  const myTotalDist = (distributions ?? []).reduce((s, d) => s + Number(d.amount), 0)
+  const activeLoans = (loans ?? []).filter((l: any) => l.status === 'active').length
+  const settledLoans = (loans ?? []).filter((l: any) => l.status === 'settled').length
+  const myTotalContrib = (myContributions ?? []).reduce((s: number, c: any) => s + Number(c.amount), 0)
+  const myTotalDist = (distributions ?? []).reduce((s: number, d: any) => s + Number(d.amount), 0)
+  const myGuaranteedLoans = (loans ?? []).filter((l: any) => l.borrower?.guarantor_id === profile?.id && l.status === 'active')
 
-  // Loans where I am guarantor
-  const myGuaranteedLoans = (loans ?? []).filter(l =>
-    l.borrower?.guarantor_id === profile?.id && l.status === 'active'
-  )
-
-  const statCards = isAdmin ? [
+  const adminCards = [
     { label: 'Total Pool', value: formatCurrency(totalPool), icon: Wallet, color: 'bg-brand-50 text-brand-600', border: 'border-brand-200' },
     { label: 'Available Balance', value: formatCurrency(balance), icon: TrendingUp, color: 'bg-green-50 text-green-600', border: 'border-green-200' },
-    { label: 'Total Members', value: members?.length ?? 0, icon: Users, color: 'bg-blue-50 text-blue-600', border: 'border-blue-200' },
-    { label: 'Active Loans', value: activeLoans, icon: HandCoins, color: 'bg-amber-50 text-amber-600', border: 'border-amber-200' },
-  ] : [
+    { label: 'Total Members', value: String(members?.length ?? 0), icon: Users, color: 'bg-blue-50 text-blue-600', border: 'border-blue-200' },
+    { label: 'Active Loans', value: String(activeLoans), icon: HandCoins, color: 'bg-amber-50 text-amber-600', border: 'border-amber-200' },
+  ]
+  const investorCards = [
     { label: 'My Contribution', value: formatCurrency(myTotalContrib), icon: Wallet, color: 'bg-brand-50 text-brand-600', border: 'border-brand-200' },
     { label: 'Total Pool', value: formatCurrency(totalPool), icon: TrendingUp, color: 'bg-green-50 text-green-600', border: 'border-green-200' },
-    { label: 'My Distributions', value: formatCurrency(myTotalDist), icon: Gift, color: 'bg-purple-50 text-purple-600', border: 'border-purple-200' },
-    { label: 'Active Loans', value: activeLoans, icon: HandCoins, color: 'bg-amber-50 text-amber-600', border: 'border-amber-200' },
+    { label: 'My Distributions', value: formatCurrency(myTotalDist), icon: GiftIcon, color: 'bg-purple-50 text-purple-600', border: 'border-purple-200' },
+    { label: 'Active Loans', value: String(activeLoans), icon: HandCoins, color: 'bg-amber-50 text-amber-600', border: 'border-amber-200' },
   ]
+  const statCards = isAdmin ? adminCards : investorCards
 
   return (
     <div className="space-y-6">
@@ -53,7 +64,6 @@ export default async function DashboardPage() {
         <p className="text-earth-500 mt-1">Overview of Gram Nidhi loan pool</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(({ label, value, icon: Icon, color, border }) => (
           <div key={label} className={`card border ${border}`}>
@@ -71,14 +81,13 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Loans */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display text-lg font-semibold text-earth-800">Recent Active Loans</h2>
             <Link href={isAdmin ? '/admin/loans' : '/loans'} className="text-sm text-brand-600 hover:text-brand-700 font-medium">View all →</Link>
           </div>
           <div className="space-y-3">
-            {(loans ?? []).filter(l => l.status === 'active').slice(0, 5).map(loan => (
+            {(loans ?? []).filter((l: any) => l.status === 'active').slice(0, 5).map((loan: any) => (
               <div key={loan.id} className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-brand-100">
                 <div>
                   <p className="font-semibold text-earth-800 text-sm">{loan.borrower?.full_name}</p>
@@ -90,13 +99,12 @@ export default async function DashboardPage() {
                 </div>
               </div>
             ))}
-            {(loans ?? []).filter(l => l.status === 'active').length === 0 && (
+            {(loans ?? []).filter((l: any) => l.status === 'active').length === 0 && (
               <p className="text-earth-400 text-sm text-center py-4">No active loans</p>
             )}
           </div>
         </div>
 
-        {/* My Guarantees or Loan Summary */}
         <div className="card">
           {!isAdmin ? (
             <>
@@ -105,7 +113,7 @@ export default async function DashboardPage() {
                 <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-semibold">{myGuaranteedLoans.length} active</span>
               </div>
               <div className="space-y-3">
-                {myGuaranteedLoans.slice(0, 5).map(loan => (
+                {myGuaranteedLoans.slice(0, 5).map((loan: any) => (
                   <div key={loan.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
                     <div className="flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
@@ -163,14 +171,5 @@ export default async function DashboardPage() {
         </div>
       </div>
     </div>
-  )
-}
-
-function Gift(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" />
-      <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
-    </svg>
   )
 }
