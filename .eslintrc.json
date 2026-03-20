@@ -6,10 +6,3 @@
     "@next/next/no-page-custom-font": "off"
   }
 }
-```
-
-Also go to **[github.com/bikashamit/village-loan-system/blob/main/app/dashboard/page.tsx](https://github.com/bikashamit/village-loan-system/blob/main/app/dashboard/page.tsx)**
-
-Click ✏️ → find the very first line which says:
-```
-/* eslint-disable @typescript-eslint/no-explicit-any */
